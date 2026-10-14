@@ -26,7 +26,10 @@ Approval is Google's decision and is not guaranteed. What helps:
 ## Test on Vercel (free)
 1. Push this folder to a GitHub repository.
 2. At vercel.com choose Add New, then Project, and import the repository. Framework preset: Other. Leave the build settings alone, because `vercel.json` sets them.
-3. Before deploying, open Environment Variables and add `ANTHROPIC_API_KEY`.
+3. No API key is needed for the first test. `vercel.json` runs the free layout test (`NO_AI=1`), which fills stories with the feed excerpt and placeholder text.
 4. Deploy. You get an address like `nayora-xxxx.vercel.app`.
 
 Test deploys write at most 5 new articles per build, show no ads, and tell search engines not to index the site. To update the stories, press Redeploy in Vercel. Vercel's free Hobby plan is for non-commercial use, so move to your own domain on a host that allows commercial sites (for example Cloudflare Pages, or Vercel Pro) before turning ads on.
+
+### Real articles later
+The Claude API is paid and is separate from a Claude.ai chat plan. Create a key at console.anthropic.com and add credit. Then in `vercel.json` change `buildCommand` to `NAYORA_TEST=1 MAX_NEW=5 node build.mjs` and add `ANTHROPIC_API_KEY` in Vercel's Environment Variables. The `NO_AI` mode refuses to run outside test deploys, so placeholder text cannot be published for AdSense.

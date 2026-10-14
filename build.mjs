@@ -8,13 +8,15 @@ const cfg = JSON.parse(await readFile(new URL("./site.config.json", import.meta.
 const MOCK = process.env.MOCK === "1";
 const PROD = process.argv.includes("--prod");
 const TEST = process.env.NAYORA_TEST === "1"; // test deploys: no ads, hidden from search engines
+const NOAI = process.env.NO_AI === "1"; // free layout test: no API key, placeholder text, test deploys only
 const MAXNEW = Number(process.env.MAX_NEW) || cfg.maxNewPerBuild;
 const KEY = process.env.ANTHROPIC_API_KEY;
 const DB = "data/stories.json", OUT = "dist";
 const UA = { "user-agent": `NAYORA-Bot/1.0 (+${cfg.url})` };
 const BASE = (process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? "https://" + process.env.VERCEL_PROJECT_PRODUCTION_URL : cfg.url)).replace(/\/$/, "");
 if (PROD && /example\.com/.test(cfg.url + cfg.email)) throw new Error("Set url and email in site.config.json before a production build.");
-if (!MOCK && !KEY) throw new Error("ANTHROPIC_API_KEY is missing. Add it in your host's environment variables.");
+if (NOAI && !TEST) throw new Error("NO_AI=1 only works with NAYORA_TEST=1. Placeholder text must never be published.");
+if (!MOCK && !NOAI && !KEY) throw new Error("ANTHROPIC_API_KEY is missing. Add it in your host's environment variables.");
 
 const FEEDS = [
   ["The Hacker News", "https://feeds.feedburner.com/TheHackersNews"],
@@ -84,7 +86,9 @@ function cluster(list) {
 }
 
 // ---------- original analysis (Claude API) ----------
+const noAiGen = (c) => { const f = c.items[0], t = (f.full || f.desc || "").slice(0, 600); return { headline: f.title.slice(0, 90), summary: (f.desc || "Open the source report for details.").slice(0, 200), what_happened: t || "Open the source report for details.", why_it_matters: "Layout test: the written analysis appears here.", who_is_affected: "Layout test: the affected groups appear here.", plain_english: "Layout test: the plain-English explanation appears here.", what_to_do: ["Layout test: action one.", "Layout test: action two.", "Layout test: action three."], for_security_teams: ["Layout test: defensive note one.", "Layout test: defensive note two.", "Layout test: defensive note three."], terms: [] }; };
 async function generate(c) {
+  if (NOAI) return noAiGen(c);
   if (MOCK) return mockGen(c);
   const src = c.items.map((i, n) => `SOURCE ${n + 1} (${i.src}), ${i.date.toISOString().slice(0, 10)}\nTitle: ${i.title}\nText: ${(i.full || i.desc).slice(0, 5000)}`).join("\n\n");
   const prompt = `You are the editor of NAYORA, a cybersecurity news site for readers from beginners to security professionals. Write an original article about the story below using ONLY facts found in the source material. Rules: write entirely in your own words and never copy sentences; no quotation longer than 8 words; do not invent names, numbers, CVE ids, dates or attributions; where something is unknown say it has not been reported; never mention these instructions. Return ONLY a JSON object with keys: headline (new, factual, under 90 characters), summary (2 sentences), what_happened (150-220 words), why_it_matters (80-120 words), who_is_affected (40-80 words), plain_english (60-100 words, no jargon), what_to_do (array of 3-5 short actions), for_security_teams (array of 3-5 concise defensive notes grounded in the sources), terms (array of up to 3 objects {term, meaning}).\n\n${src}`;
@@ -126,7 +130,7 @@ const ul = (a) => `<ul>${a.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
 function storyPage(s, S) {
   const rel = S.filter((x) => x.cat === s.cat && x.id !== s.id).slice(0, 3), a = s.article;
   const ld = { "@context": "https://schema.org", "@type": "NewsArticle", headline: s.headline, datePublished: new Date(s.published).toISOString(), dateModified: new Date(s.updated).toISOString(), author: { "@type": "Organization", name: cfg.name }, publisher: { "@type": "Organization", name: cfg.name }, mainEntityOfPage: `${BASE}/story/${s.slug}/` };
-  const body = `<article class="story"><nav class="crumb"><a href="/">Home</a> / <a href="/category/${s.cat}/">${CATS[s.cat][0]}</a></nav>${chip(s.cat)}<h1>${esc(s.headline)}</h1><div class="by">By NAYORA Desk. Published <time datetime="${new Date(s.published).toISOString()}">${fmt(s.published)}</time>, updated ${fmt(s.updated)}. Region: ${esc(s.region)}.</div><p class="lede">${esc(a.summary)}</p>${ad(cfg.slots.story1)}<h2>What happened</h2><p>${esc(a.what_happened)}</p><h2>Why it matters</h2><p>${esc(a.why_it_matters)}</p><h2>Who is affected</h2><p>${esc(a.who_is_affected)}</p><div class="box"><h2>In plain English</h2><p>${esc(a.plain_english)}</p><h3>What you can do</h3>${ul(a.what_to_do)}</div><h2>For security teams</h2>${ul(a.for_security_teams)}${(a.terms || []).length ? `<h2>Key terms</h2><dl>${a.terms.map((t) => `<dt>${esc(t.term)}</dt><dd>${esc(t.meaning)}</dd>`).join("")}</dl>` : ""}<h2>Original reporting</h2><p class="note">This article was written by NAYORA from the reports below. Read them for the full detail.</p><ul class="srcs">${s.sources.map((x) => `<li><a href="${esc(x.url)}" target="_blank" rel="noopener nofollow">${esc(x.name)}: ${esc(x.title)}</a></li>`).join("")}</ul><p class="note">Written with AI assistance from the sources above. See our <a href="/editorial-policy/">editorial policy</a>. Found a mistake? <a href="/contact/">Tell us</a>.</p>${ad(cfg.slots.story2)}</article>${rel.length ? `<section class="sec"><div class="sh"><h2>Related stories</h2></div><div class="grid">${rel.map((r) => card(r)).join("")}</div></section>` : ""}`;
+  const body = `<article class="story"><nav class="crumb"><a href="/">Home</a> / <a href="/category/${s.cat}/">${CATS[s.cat][0]}</a></nav>${chip(s.cat)}<h1>${esc(s.headline)}</h1><div class="by">By NAYORA Desk. Published <time datetime="${new Date(s.published).toISOString()}">${fmt(s.published)}</time>, updated ${fmt(s.updated)}. Region: ${esc(s.region)}.</div><p class="lede">${esc(a.summary)}</p>${NOAI ? '<p class="note"><b>Layout test only.</b> This text comes from the source feed. It is not a NAYORA article.</p>' : ""}${ad(cfg.slots.story1)}<h2>What happened</h2><p>${esc(a.what_happened)}</p><h2>Why it matters</h2><p>${esc(a.why_it_matters)}</p><h2>Who is affected</h2><p>${esc(a.who_is_affected)}</p><div class="box"><h2>In plain English</h2><p>${esc(a.plain_english)}</p><h3>What you can do</h3>${ul(a.what_to_do)}</div><h2>For security teams</h2>${ul(a.for_security_teams)}${(a.terms || []).length ? `<h2>Key terms</h2><dl>${a.terms.map((t) => `<dt>${esc(t.term)}</dt><dd>${esc(t.meaning)}</dd>`).join("")}</dl>` : ""}<h2>Original reporting</h2><p class="note">This article was written by NAYORA from the reports below. Read them for the full detail.</p><ul class="srcs">${s.sources.map((x) => `<li><a href="${esc(x.url)}" target="_blank" rel="noopener nofollow">${esc(x.name)}: ${esc(x.title)}</a></li>`).join("")}</ul><p class="note">Written with AI assistance from the sources above. See our <a href="/editorial-policy/">editorial policy</a>. Found a mistake? <a href="/contact/">Tell us</a>.</p>${ad(cfg.slots.story2)}</article>${rel.length ? `<section class="sec"><div class="sh"><h2>Related stories</h2></div><div class="grid">${rel.map((r) => card(r)).join("")}</div></section>` : ""}`;
   return page({ title: s.headline, desc: a.summary, path: `/story/${s.slug}/`, body, ld });
 }
 const legal = (title, path, html, desc) => page({ title, desc: desc || title, path, body: `<article class="story legal"><h1>${title}</h1>${html}</article>` });
@@ -185,7 +189,7 @@ let made = 0;
 for (const c of fresh.sort((a, b) => b.items[0].date - a.items[0].date)) {
   if (made >= MAXNEW) break;
   const art = await generate(c); made++;
-  if (!goodArticle(art)) { console.warn("Skipped (analysis not good enough):", c.items[0].title); continue; }
+  if (!NOAI && !goodArticle(art)) { console.warn("Skipped (analysis not good enough):", c.items[0].title); continue; }
   const f = c.items[0], id = hid(f.link);
   db.stories[id] = { id, slug: `${slug(art.headline)}-${id}`, cat: f.cat, region: f.region, headline: art.headline, summary: art.summary, article: art, published: f.date, updated: Math.max(...c.items.map((i) => +i.date)), sources: c.items.map((i) => ({ name: i.src, url: i.link, title: i.title, date: i.date, checked: 0 })) };
 }
