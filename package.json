@@ -1,0 +1,11 @@
+{
+  "name": "nayora-site",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "node build.mjs",
+    "build:mock": "MOCK=1 node build.mjs",
+    "build:prod": "node build.mjs --prod"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "buildCommand": "NAYORA_TEST=1 MAX_NEW=5 node build.mjs",
+  "installCommand": "echo no dependencies",
+  "outputDirectory": "dist",
+  "cleanUrls": true,
+  "trailingSlash": true
+}

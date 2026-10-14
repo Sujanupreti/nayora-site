@@ -1,0 +1,11 @@
+{
+  "name": "NAYORA",
+  "url": "https://www.example.com",
+  "email": "contact@example.com",
+  "owner": "Your Name or Company",
+  "adsenseClient": "",
+  "slots": { "home": "", "story1": "", "story2": "", "list": "" },
+  "model": "claude-sonnet-5-5",
+  "maxNewPerBuild": 10,
+  "keepDays": 30
+}
